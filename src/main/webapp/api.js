@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'http://localhost:8080/SocialRestAPI/api';
+export const API_BASE_URL = 'https://socialrest.onrender.com/api';
 
 // --------------------- Token Storage ---------------------
 export const ACCESS_TOKEN_KEY = 'access_token';
