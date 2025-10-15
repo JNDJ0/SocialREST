@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SocialREST - Login page</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen p-4">
+    <div class="w-full max-w-md">
+        <h1 class="text-4xl font-bold text-center mb-8">SocialREST</h1>
+
+        <!-- Login Form Container -->
+        <div id="login-container">
+            <!-- Login Type Selector -->
+            <div class="flex justify-center mb-6 bg-gray-700 rounded-lg p-1">
+                <button id="auth-type-basic" class="w-full py-2 px-4 rounded-md text-sm font-medium transition duration-300">Basic</button>
+                <button id="auth-type-jwt" class="w-full py-2 px-4 rounded-md text-sm font-medium transition duration-300">JWT</button>
+            </div>
+
+            <div id="login-box" class="bg-gray-800 p-8 rounded-lg shadow-2xl">
+                <h2 class="text-2xl font-semibold text-center mb-6">Login</h2>
+                <form>
+                    <input id="login-email" type="email" placeholder="Email" class="w-full bg-gray-700 text-white p-3 rounded-md mb-4 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+                    <input id="login-password" type="password" placeholder="Password" class="w-full bg-gray-700 text-white p-3 rounded-md mb-6 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <button id="login-1" type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-md cursor-pointer transition duration-300">Login</button>
+                        <button id="register-1" type="button" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 px-4 rounded-md transition duration-300">Register</button>
+                        <button id="demo-users" type="button" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-md transition duration-300">Demo users</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Registration Form Container -->
+        <div id="register-box" class="bg-gray-800 p-8 rounded-lg shadow-2xl hidden">
+             <h2 class="text-2xl font-semibold text-center mb-6">Create Account</h2>
+            <form>
+                <input id="register-name" type="text" placeholder="Name" class="w-full bg-gray-700 text-white p-3 rounded-md mb-4 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+                <input id="register-email" type="email" placeholder="Email" class="w-full bg-gray-700 text-white p-3 rounded-md mb-4 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+                <input id="register-password" type="password" placeholder="Password" class="w-full bg-gray-700 text-white p-3 rounded-md mb-4 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+                <input id="register-password-confirm" type="password" placeholder="Re-type password" class="w-full bg-gray-700 text-white p-3 rounded-md mb-6 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <button id="login-2" type="button" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 px-4 rounded-md transition duration-300">Back to Login</button>
+                    <input id="register-2" type="submit" value="Register" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-md cursor-pointer transition duration-300">
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        import { basicLogin, JWTLogin, createUser, showModal } from './api.js';
+
+        const loginContainer = document.getElementById("login-container");
+        const register_box = document.getElementById("register-box");
+
+        const authTypeBasicBtn = document.getElementById('auth-type-basic');
+        const authTypeJWTBtn = document.getElementById('auth-type-jwt');
+        
+        let authenticationType = 'Basic';
+
+        function updateAuthView() {
+            if (authenticationType === 'Basic') {
+                authTypeBasicBtn.classList.add('bg-emerald-600', 'text-white');
+                authTypeBasicBtn.classList.remove('text-gray-300', 'hover:bg-gray-600');
+                authTypeJWTBtn.classList.remove('bg-emerald-600', 'text-white');
+                authTypeJWTBtn.classList.add('text-gray-300', 'hover:bg-gray-600');
+            } else {
+                authTypeJWTBtn.classList.add('bg-emerald-600', 'text-white');
+                authTypeJWTBtn.classList.remove('text-gray-300', 'hover:bg-gray-600');
+                authTypeBasicBtn.classList.remove('bg-emerald-600', 'text-white');
+                authTypeBasicBtn.classList.add('text-gray-300', 'hover:bg-gray-600');
+            }
+        }
+
+        const register_button_1 = document.getElementById("register-1");
+        const login_button_2 = document.getElementById("login-2");
+
+        register_button_1.onclick = () => {
+            loginContainer.classList.add('hidden');
+            register_box.classList.remove('hidden');
+        };
+
+        login_button_2.onclick = () => {
+            register_box.classList.add('hidden');
+            loginContainer.classList.remove('hidden');
+        };
+
+        document.getElementById('demo-users').onclick = () => {
+            alert('alice@mail.com : password1\nbob@mail.com : password2\nadmin@mail.com : admin');
+        };
+
+        authTypeBasicBtn.addEventListener('click', () => {
+            authenticationType = 'Basic';
+            updateAuthView();
+        });
+
+        authTypeJWTBtn.addEventListener('click', () => {
+            authenticationType = 'JWT';
+            updateAuthView();
+        });
+    
+        async function handleLogin(event) {
+            event.preventDefault(); 
+            const emailField = document.getElementById("login-email");
+            const passwordField = document.getElementById("login-password");
+            
+            try {
+                let success = null;
+                if (authenticationType === 'Basic') {
+                    success = await basicLogin(emailField.value, passwordField.value);
+                } 
+                else if (authenticationType === 'JWT') {
+                    success = await JWTLogin(emailField.value, passwordField.value);
+                }
+                
+                if (success) {
+                    window.location.href = 'index.html'; 
+                } else {
+                    showModal("Invalid username or password. Please try again.");
+                }
+            } catch (error) {
+                console.error("Login failed:", error);
+                showModal(error.message || "An unexpected error occurred.");
+            }
+        }
+        
+        document.querySelector("#login-box form").addEventListener('submit', handleLogin);
+        
+        async function validateRegister(event){
+            event.preventDefault(); 
+
+            const nameField = document.getElementById("register-name");
+            const emailField = document.getElementById("register-email");
+            const passwordField = document.getElementById("register-password");
+            const passwordFieldConfirm = document.getElementById("register-password-confirm");
+            
+            if (passwordField.value != passwordFieldConfirm.value) {
+                showModal("The passwords don't match");
+                return false;
+            }
+
+            try {
+                let success = await createUser({
+                    'name': nameField.value,
+                    'email': emailField.value,
+                    'password': passwordField.value,
+                });
+
+                if (success) {
+                    showModal("Register successful!");
+                    window.location.href = 'login.html'; 
+                } 
+                else {
+                    showModal("Something is not right.");
+                }
+            }
+            catch (error) {
+                console.error("Register failed:", error);
+                showModal(error.message || "An unexpected error occurred.");
+            }
+        }
+
+        document.querySelector("#register-box form").addEventListener('submit', validateRegister);
+
+        updateAuthView();
+    </script>
+</body>
+</html>
+

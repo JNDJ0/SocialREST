@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SocialREST - Search Users</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1a202c; }
+        ::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #718096; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <!-- Header -->
+    <header class="sticky top-0 z-10 bg-gray-900/80 backdrop-blur-sm border-b border-gray-700">
+        <div class="max-w-2xl mx-auto px-4 py-3 flex justify-between items-center">
+             <a href="index.html" title="Back to Feed" class="text-gray-400 hover:text-white transition-colors duration-200 flex items-center space-x-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+            </a>
+            <h1 class="text-xl font-bold">Search Users</h1>
+            <div class="w-6 h-6"></div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-2xl mx-auto px-4 py-8">
+        <div class="relative mb-6">
+            <input type="text" id="search-input" placeholder="Search for users by name..." class="w-full bg-gray-800 border border-gray-600 rounded-lg py-3 pl-10 pr-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                 <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+        </div>
+
+        <!-- Search Results -->
+        <div id="users-container">
+            <p id="loading-message" class="text-center text-gray-400">Loading users...</p>
+        </div>
+    </main>
+
+    <script type="module" src="api.js"></script>
+    <script type="module">
+        import { getAllUsers } from './api.js';
+
+        const usersContainer = document.getElementById('users-container');
+        const searchInput = document.getElementById('search-input');
+        const loadingMessage = document.getElementById('loading-message');
+        let debounceTimer;
+
+        function createUserElement(user) {
+            const userLink = document.createElement('a');
+            userLink.href = `profile.html?id=${user.id}`;
+            userLink.className = 'bg-gray-800 border border-gray-700 rounded-lg p-4 mb-3 flex items-center transition-transform duration-200 hover:bg-gray-700 hover:border-blue-500';
+
+            userLink.innerHTML = `
+                <div class="w-12 h-12 rounded-full bg-gray-600 flex-shrink-0 mr-4"></div>
+                <div>
+                    <p class="font-bold text-lg text-white">${user.name}</p>
+                    <p class="text-sm text-gray-400">${user.email}</p>
+                </div>
+            `;
+            return userLink;
+        }
+
+        async function renderUsers(name = '') {
+            loadingMessage.style.display = 'block';
+            usersContainer.innerHTML = '';
+            usersContainer.appendChild(loadingMessage);
+            
+            try {
+                const users = await getAllUsers(name);
+                loadingMessage.style.display = 'none';
+
+                if (users.length === 0) {
+                    usersContainer.innerHTML = '<p class="text-center text-gray-500">No users found.</p>';
+                    return;
+                }
+
+                users.forEach(user => {
+                    const userElement = createUserElement(user);
+                    usersContainer.appendChild(userElement);
+                });
+
+            } catch (error) {
+                console.error("Failed to fetch users:", error);
+                loadingMessage.textContent = 'Error: Could not fetch users.';
+                loadingMessage.classList.add('text-red-400');
+            }
+        }
+
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(debounceTimer);
+            const searchText = e.target.value;
+            debounceTimer = setTimeout(() => {
+                renderUsers(searchText);
+            }, 300);
+        });
+
+        renderUsers();
+    </script>
+</body>
+</html>

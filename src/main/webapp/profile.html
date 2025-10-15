@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SocialREST - Profile</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1a202c; }
+        ::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #718096; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <!-- Header -->
+    <header class="sticky top-0 z-10 bg-gray-900/80 backdrop-blur-sm border-b border-gray-700">
+        <div class="max-w-2xl mx-auto px-4 py-3 flex justify-between items-center">
+            <a href="index.html" title="Back to Feed" class="text-gray-400 hover:text-white transition-colors duration-200 flex items-center space-x-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                <span class="font-bold text-lg">Profile</span>
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-2xl mx-auto px-4 py-8">
+        <div id="profile-details-container">
+            <p id="loading-message" class="text-center text-gray-400">Loading profile...</p>
+        </div>
+
+        <div class="mt-8 border-t border-gray-700 pt-6">
+            <h2 class="text-2xl font-bold mb-4">Posts</h2>
+            <div id="user-posts-container">
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { getUserById, getAllPosts, requireAuth, USER_TOKEN_KEY } from './api.js';
+
+        requireAuth();
+
+        const profileContainer = document.getElementById('profile-details-container');
+        const postsContainer = document.getElementById('user-posts-container');
+        const loadingMessage = document.getElementById('loading-message');
+        const loggedInUser = JSON.parse(sessionStorage.getItem(USER_TOKEN_KEY));
+
+        function createProfileHeader(user, isOwnProfile) {
+            const headerDiv = document.createElement('div');
+            const joinDate = new Date(user.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+            
+            let editButtonHtml = '';
+            if (isOwnProfile) {
+                editButtonHtml = `
+                    <button id="edit-profile-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                        Edit Profile
+                    </button>
+                `;
+            }
+
+            headerDiv.innerHTML = `
+                <div class="flex items-start justify-between">
+                    <div>
+                        <h1 class="text-3xl font-bold">${user.name}</h1>
+                        <p class="text-gray-400">${user.email}</p>
+                        <p class="text-sm text-gray-500 mt-1">Joined ${joinDate}</p>
+                    </div>
+                    ${editButtonHtml}
+                </div>
+            `;
+            
+            const editBtn = headerDiv.querySelector('#edit-profile-btn');
+            if(editBtn) {
+                editBtn.addEventListener('click', () => window.location.href = 'edit.html' );
+            }
+
+            return headerDiv;
+        }
+
+        function createPostElement(post, author) {
+            const postCard = document.createElement('div');
+            postCard.className = 'bg-gray-800 border border-gray-700 rounded-lg p-4 mb-4';
+            const postDate = new Date(post.createdAt).toLocaleString();
+            postCard.innerHTML = `
+                <div class="flex items-center mb-3">
+                    <div>
+                        <p class="font-bold text-white">${author.name}</p>
+                        <p class="text-sm text-gray-400">${postDate}</p>
+                    </div>
+                </div>
+                <p class="text-gray-500 whitespace-pre-wrap">${post.title}</p>
+                <p class="text-gray-300 whitespace-pre-wrap">${post.content}</p>
+                 <div class="mt-4 pt-3 border-t border-gray-700 flex items-center space-x-6 text-gray-500">
+                    <a href="post.html?id=${post.id}" class="flex items-center space-x-2 hover:text-blue-400 transition-colors duration-200">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                        <span>Comment</span>
+                    </a>
+                    <button class="flex items-center space-x-2 hover:text-green-400 transition-colors duration-200">
+                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+                        <span>Like</span>
+                    </button>
+                </div>
+            `;
+            return postCard;
+        }
+
+        async function loadProfilePage() {
+            const urlParams = new URLSearchParams(window.location.search);
+            let userIdToLoad = urlParams.get('id');
+            let isOwnProfile = false;
+
+            if (!userIdToLoad) {
+                userIdToLoad = loggedInUser ? loggedInUser.id : null;
+                isOwnProfile = true;
+            }
+            else {
+                userIdToLoad = parseInt(userIdToLoad, 10);
+                if (loggedInUser && loggedInUser.id === userIdToLoad) {
+                    isOwnProfile = true;
+                }
+            }
+
+            if (!userIdToLoad) {
+                loadingMessage.textContent = 'Error: User not specified and you are not logged in.';
+                loadingMessage.classList.add('text-red-400');
+                return;
+            }
+
+            try {
+                const [user, posts] = await Promise.all([
+                    getUserById(userIdToLoad),
+                    getAllPosts(userIdToLoad) 
+                ]);
+
+                loadingMessage.remove();
+
+                const profileHeader = createProfileHeader(user, isOwnProfile);
+                profileContainer.appendChild(profileHeader);
+
+                if (posts.length === 0) {
+                    postsContainer.innerHTML = '<p class="text-gray-500">This user hasn\'t posted anything yet.</p>';
+                    return;
+                }
+
+                for (const post of posts) {
+                    const postElement = createPostElement(post, user);
+                    postsContainer.appendChild(postElement);
+                }
+
+            } 
+            catch (error) {
+                console.error("Failed to load profile:", error);
+                loadingMessage.textContent = 'Error: Could not fetch profile data.';
+                loadingMessage.classList.add('text-red-400');
+            }
+        }
+
+        loadProfilePage();
+    </script>
+</body>
+</html>
+

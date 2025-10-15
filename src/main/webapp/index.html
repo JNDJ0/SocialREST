@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SocialREST - Feed</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1a202c; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4a5568; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #718096; 
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <!-- Header -->
+    <header class="sticky top-0 z-10 bg-gray-900/80 backdrop-blur-sm border-b border-gray-700">
+        <div class="max-w-2xl mx-auto px-4 py-3 flex justify-between items-center">
+            <h1 class="text-2xl font-bold">SocialREST</h1>
+            <div class="flex items-center space-x-4">
+                <a id="admin-link" href="admin.html" class="text-gray-400 hover:text-white hidden" title="Admin Panel">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.286zm-1.5 6.135l-1.096-1.096a.75.75 0 00-1.06 1.06l1.096 1.096a.75.75 0 001.06-1.06z"></path></svg>
+                </a>
+                <a href="search.html" class="text-gray-400 hover:text-white" title="Search Users">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </a>
+                <a href="profile.html" class="text-gray-400 hover:text-white" title="Profile">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                </a>
+                <button id="logout" class="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded"> Logout </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Create Post -->
+    <main class="max-w-2xl mx-auto px-4 py-8">
+        <div id="create-post-container" class="mb-6">
+            <form id="create-post-form" class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                <input id="post-title" type="text" placeholder="Title" class="w-full bg-gray-800 border-none rounded-lg p-3 text-white placeholder-gray-500 focus:outline-none focus:ring-0">
+                <textarea id="post-text" class="w-full bg-gray-800 border-none rounded-lg p-3 text-white placeholder-gray-500 focus:outline-none focus:ring-0" rows="3" placeholder="What's on your mind?" required></textarea>
+                <div class="text-right mt-2">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200 disabled:bg-gray-500">
+                        Post
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Feed -->
+        <div id="posts-container">
+             <p id="loading-message" class="text-center text-gray-400 text-red-400"> Error: You are not logged in</p>
+        </div>
+    </main>
+
+    <script type="module">
+        import { getAllPosts, getUserById, createPost, logout, deletePost, requireAuth,checkAdminRole, showModal, USER_TOKEN_KEY } from './api.js';
+        
+        requireAuth();
+        
+        const adminLink = document.getElementById('admin-link');
+        if (checkAdminRole()) {
+            adminLink.classList.remove('hidden');
+        }
+        
+        const user = JSON.parse(sessionStorage.getItem(USER_TOKEN_KEY));
+
+        const postsContainer = document.getElementById('posts-container');
+        const loadingMessage = document.getElementById('loading-message');
+        const createPostForm = document.getElementById('create-post-form');
+
+        document.getElementById('logout').onclick = () => logout();
+
+        function createPostElement(post, author) {
+            const postCard = document.createElement('div');
+            postCard.className = 'bg-gray-800 border border-gray-700 rounded-lg p-4 mb-4 transition-transform duration-300 hover:scale-[1.02] hover:border-blue-500';
+
+            const authorName = author ? author.name : 'Unknown User';
+            const postDate = new Date(post.createdAt).toLocaleString();
+
+            let deleteButtonHtml = '';
+            if (checkAdminRole() || user.id == author.id) {
+                deleteButtonHtml = `
+                    <div>
+                        <button class="delete-post-btn text-red-500 hover:text-red-400 transition-colors" title="Delete Post">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                `;
+            }
+
+            postCard.innerHTML = `
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <a href="profile.html?id=${author.id}" class="font-bold text-white">${authorName}</a>
+                        <p class="text-sm text-gray-400">${postDate}</p>
+                    </div>
+                    ${deleteButtonHtml}
+                </div>
+                <p class="text-gray-500 whitespace-pre-wrap">${post.title}</p>
+                <p class="text-gray-300 whitespace-pre-wrap">${post.content}</p>
+                 <div class="mt-4 pt-3 border-t border-gray-700 flex items-center space-x-6 text-gray-500">
+                    <a href="post.html?id=${post.id}" class="flex items-center space-x-2 hover:text-blue-400 transition-colors duration-200">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                        <span>Comment</span>
+                    </a>
+                    <button class="flex items-center space-x-2 hover:text-green-400 transition-colors duration-200">
+                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+                        <span>Like</span>
+                    </button>
+                </div>
+            `;
+
+            const deleteBtn = postCard.querySelector('.delete-post-btn');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', () => showDeleteConfirm(post.id));
+            }
+            return postCard;
+        }
+
+        async function loadAndDisplayPosts() {
+            loadingMessage.textContent = 'Loading posts...';
+            loadingMessage.classList.remove('text-red-400');
+            try {
+                const posts = await getAllPosts();
+                
+                if (loadingMessage) loadingMessage.remove();
+                postsContainer.innerHTML = ''; 
+
+                if (posts.length === 0) {
+                    postsContainer.innerHTML = '<p class="text-center text-gray-400">No posts yet. Be the first to create one!</p>';
+                    return;
+                }
+                
+                for (const post of posts.slice().reverse()) {
+                    try {
+                        const author = await getUserById(post.authorId);
+                        const postElement = createPostElement(post, author);
+                        postsContainer.appendChild(postElement);
+                    } 
+                    catch (userError) {
+                        console.error(`Could not fetch author for post ${post.id}`, userError);
+                        const postElement = createPostElement(post, {id: post.authorId, name: 'Unknown User'});
+                        postsContainer.appendChild(postElement);
+                    }
+                }
+            }
+            catch (error) {
+                console.error('Failed to fetch posts:', error);
+                if (loadingMessage) {
+                    loadingMessage.textContent = 'Error: Could not fetch posts from the API.';
+                    loadingMessage.classList.add('text-red-400');
+                }
+            }
+        }
+
+        function showDeleteConfirm(postId) {
+            const message = `Are you sure you want to delete this post? This action cannot be undone.`;
+            showModal(message, async () => {
+                try {
+                    await deletePost(postId);
+                    const userDiv = document.querySelector(`[data-user-id='${postId}']`);
+                    if (userDiv) userDiv.remove();
+                    window.location.href = "index.html";
+                } 
+                catch (error) {
+                    console.error("Failed to delete user:", error);
+                    showModal('Could not delete user. You may not have permission.', null, true);
+                }
+            }, false);
+        }
+
+        createPostForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const postText = document.getElementById('post-text');
+            const postTitle = document.getElementById('post-title');
+            const submitButton = e.target.querySelector('button[type="submit"]');
+            
+            const content = postText.value.trim();
+            const title = postTitle.value.trim();
+            if (!content || !title) return;
+
+            submitButton.disabled = true;
+            submitButton.textContent = 'Posting...';
+
+            try {
+                const newPost = { title, content, authorId: user.id };
+                await createPost(newPost);
+                postText.value = '';
+                postTitle.value = '';
+                loadAndDisplayPosts();
+            } 
+            catch (error) {
+                console.error('Failed to create post:', error);
+                showMessage('Could not create post. Please try again.');
+            } 
+            finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Post';
+            }
+        });
+
+        function showMessage(message) {
+            const messageBox = document.createElement('div');
+            messageBox.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background-color: #f8d7da; color: #721c24; padding: 10px 20px; border-radius: 5px; border: 1px solid #f5c6cb; z-index: 1000;';
+            messageBox.textContent = message;
+            document.body.appendChild(messageBox);
+            setTimeout(() => {
+                messageBox.remove();
+            }, 3000);
+        }
+
+        loadAndDisplayPosts();
+    </script>
+</body>
+</html>
+

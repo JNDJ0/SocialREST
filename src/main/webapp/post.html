@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SocialREST - Post</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1a202c; }
+        ::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #718096; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <!-- Header -->
+    <header class="sticky top-0 z-10 bg-gray-900/80 backdrop-blur-sm border-b border-gray-700">
+        <div class="max-w-2xl mx-auto px-4 py-3 flex justify-between items-center">
+            <a href="index.html" title="Back to Feed" class="text-gray-400 hover:text-white transition-colors duration-200 flex items-center space-x-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                <span class="font-bold text-lg">Post</span>
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-2xl mx-auto px-4 py-8">
+        <div id="post-details-container">
+             <p id="loading-message" class="text-center text-gray-400">Loading post...</p>
+        </div>
+
+        <div id="comment-form-container" class="mt-6 border-t border-gray-700 pt-6">
+            <h2 class="text-xl font-bold mb-4">Add a Comment</h2>
+            <form id="comment-form">
+                <textarea id="comment-text" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500" rows="3" placeholder="Share your thoughts..." required></textarea>
+                <div class="text-right mt-2">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                        Post Comment
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Comments list -->
+        <div id="comments-list-container" class="mt-8">
+            <h2 class="text-xl font-bold mb-4 border-t border-gray-700 pt-6">Comments</h2>
+            <div id="comments-list">
+                <!-- Comments dynamically loaded here -->
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { getPostById, getCommentsByPost, createComment, deleteComment, getUserById, requireAuth, checkAdminRole, showModal, USER_TOKEN_KEY } from './api.js';
+
+        requireAuth();
+
+        const postContainer = document.getElementById('post-details-container');
+        const commentsList = document.getElementById('comments-list');
+        const commentForm = document.getElementById('comment-form');
+        const commentText = document.getElementById('comment-text');
+        const loadingMessage = document.getElementById('loading-message');
+        const loggedInUser = JSON.parse(sessionStorage.getItem(USER_TOKEN_KEY));
+
+        function createPostElement(post, author) {
+            const postCard = document.createElement('div');
+            postCard.className = 'bg-gray-800 border border-gray-700 rounded-lg p-4';
+            const authorName = author ? author.name : 'Unknown User';
+            const postDate = new Date(post.createdAt).toLocaleString();
+
+            postCard.innerHTML = `
+                <div class="flex items-center mb-3">
+                    <div>
+                        <a href="profile.html?id=${author.id}" class="font-bold text-white hover:underline">${authorName}</a>
+                        <p class="text-sm text-gray-400">${postDate}</p>
+                    </div>
+                </div>
+                <h2 class="text-xl font-semibold mb-2">${post.title}</h2>
+                <p class="text-gray-300 whitespace-pre-wrap">${post.content}</p>
+                <div class="mt-4 pt-3 border-t border-gray-700 flex items-center space-x-6 text-gray-500">
+                    <button class="flex items-center space-x-2 hover:text-green-400 transition-colors">
+                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+                        <span>Like</span>
+                    </button>
+                </div>
+            `;
+            return postCard;
+        }
+        
+        function createCommentElement(comment, author) {
+            const commentCard = document.createElement('div');
+            commentCard.className = 'bg-gray-800 border-b border-gray-700 p-4 last:border-b-0';
+            commentCard.setAttribute('data-comment-id', comment.id);
+            const authorName = author ? author.name : 'Unknown User';
+            const commentDate = new Date(comment.createdAt).toLocaleString();
+
+            let deleteButtonHtml = '';
+            if (checkAdminRole() || author.id == loggedInUser.id) {
+                deleteButtonHtml = `
+                    <button class="delete-comment-btn text-red-500 hover:text-red-400 transition-colors" title="Delete Comment">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                `;
+            }
+
+            commentCard.innerHTML = `
+                <div class="flex items-start justify-between">
+                    <div class="flex-grow">
+                        <div class="flex items-baseline space-x-2">
+                            <a href="profile.html?id=${author.id}" class="font-bold text-white hover:underline">${authorName}</a>
+                            <p class="text-xs text-gray-400">${commentDate}</p>
+                        </div>
+                        <p class="text-gray-300 mt-1">${comment.content}</p>
+                    </div>
+                    ${deleteButtonHtml}
+                </div>
+            `;
+
+            const deleteBtn = commentCard.querySelector('.delete-comment-btn');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', () => showDeleteConfirm(comment.postId, comment.id));
+            }
+            return commentCard;
+        }
+        
+        function showDeleteConfirm(postId, commentId) {
+            showModal("Are you sure you want to delete this comment?", async () => {
+                try {
+                    await deleteComment(postId, commentId);
+                    document.querySelector(`[data-comment-id='${commentId}']`).remove();
+                    window.location.href = `post.html?id=${postId}`;
+
+                } 
+                catch (error) {
+                    console.error("Failed to delete comment:", error);
+                    showModal('Could not delete comment. You may not have permission.', null, true);
+                }
+            }, false);
+        }
+
+        async function renderComments(postId) {
+            commentsList.innerHTML = ''; 
+            try {
+                const comments = await getCommentsByPost(postId);
+                if (comments.length === 0) {
+                    commentsList.innerHTML = '<p class="text-gray-500 px-4">No comments yet.</p>';
+                    return;
+                }
+                for (const comment of comments) {
+                    const author = await getUserById(comment.authorId);
+                    const commentElement = createCommentElement(comment, author);
+                    commentsList.appendChild(commentElement);
+                }
+            }
+            catch(error) {
+                console.error("Failed to render comments:", error);
+                commentsList.innerHTML = '<p class="text-red-400 px-4">Could not load comments.</p>';
+            }
+        }
+
+        async function loadPostAndComments() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const postId = parseInt(urlParams.get('id'), 10);
+
+            if (!postId) {
+                postContainer.innerHTML = '<p class="text-center text-red-400">Error: Post ID not found in URL.</p>';
+                document.getElementById('comment-form-container').hidden = true;
+                return;
+            }
+
+            try {
+                const post = await getPostById(postId);
+                loadingMessage.remove();
+                
+                const postAuthor = await getUserById(post.authorId);
+                const postElement = createPostElement(post, postAuthor);
+                postContainer.appendChild(postElement);
+
+                await renderComments(postId);
+            }
+            catch (error) {
+                console.error("Failed to load page data:", error);
+                loadingMessage.textContent = 'Error: Could not fetch post details.';
+                loadingMessage.classList.add('text-red-400');
+            }
+        }
+
+        commentForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const urlParams = new URLSearchParams(window.location.search);
+            const postId = parseInt(urlParams.get('id'), 10);
+            const content = commentText.value.trim();
+            const submitButton = e.target.querySelector('button[type="submit"]');
+
+            if (!content || !postId) return;
+            
+            submitButton.disabled = true;
+            submitButton.textContent = 'Posting...';
+
+            const newComment = { content, authorId: loggedInUser.id };
+
+            try {
+                await createComment(postId, newComment);
+                commentText.value = ''; 
+                await renderComments(postId);
+            } 
+            catch (error) {
+                console.error("Failed to post comment:", error);
+                showModal("Could not post your comment. Please try again.", null, true);
+            } 
+            finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Post Comment';
+            }
+        });
+
+        loadPostAndComments();
+    </script>
+</body>
+</html>
+
